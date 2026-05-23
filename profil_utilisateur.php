@@ -2,7 +2,7 @@
 session_start();
 
 try {
-    $bdd = new PDO("mysql:host=localhost;dbname=gameconnect", "root", "");
+    $bdd = new PDO("mysql:host=localhost;dbname=gameconnect;charset=utf8mb4", "root", "");
     $bdd->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     die("Erreur : " . $e->getMessage());
@@ -48,7 +48,7 @@ $posts = $stmt->fetchAll();
 
     <div class="flex items-center space-x-4 mb-6">
         <?php if ($profil['avatar']): ?>
-            <img src="<?= $profil['avatar'] ?>" alt="Avatar" class="w-20 h-20 rounded-full">
+            <img src="<?= htmlspecialchars($profil['avatar']) ?>" alt="Avatar" class="w-20 h-20 rounded-full">
         <?php else: ?>
             <div class="w-20 h-20 bg-blue-600 flex items-center justify-center text-3xl font-bold rounded-full">
                 <?= strtoupper(substr($profil['pseudo'], 0, 1)) ?>
@@ -57,7 +57,8 @@ $posts = $stmt->fetchAll();
 
         <div>
             <p class="text-xl font-bold"><?= htmlspecialchars($profil['pseudo']) ?></p>
-            <p class="text-gray-400"><?= htmlspecialchars($profil['bio']) ?></p>
+            <p class="text-gray-400"><?= htmlspecialchars($profil['bio'] ?: 'Bio non renseignée') ?></p>
+            <p class="text-gray-400"><strong>Jeu préféré :</strong> <?= htmlspecialchars($profil['jeu_prefere'] ?: 'Non renseigné') ?></p>
         </div>
     </div>
 

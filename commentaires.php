@@ -14,11 +14,11 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $post_id = intval($_POST['post_id']);
-    $texte = $_POST['texte'] ?? '';
+    $post_id = intval($_POST['post_id'] ?? 0);
+    $texte = trim($_POST['texte'] ?? '');
     $user_id = $_SESSION['user_id'];
 
-    if (!empty($texte)) {
+    if ($post_id > 0 && $texte !== '') {
         $stmt = $bdd->prepare("INSERT INTO commentaires (post_id, user_id, texte) VALUES (?, ?, ?)");
         $stmt->execute([$post_id, $user_id, $texte]);
     }

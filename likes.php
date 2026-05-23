@@ -14,8 +14,13 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $post_id = intval($_POST['post_id']);
+    $post_id = intval($_POST['post_id'] ?? 0);
     $user_id = $_SESSION['user_id'];
+
+    if ($post_id <= 0) {
+        header("Location: index.php");
+        exit();
+    }
 
     $stmt = $bdd->prepare("SELECT * FROM likes WHERE post_id = ? AND user_id = ?");
     $stmt->execute([$post_id, $user_id]);

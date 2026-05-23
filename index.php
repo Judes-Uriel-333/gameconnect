@@ -17,16 +17,25 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// Récupérer les posts des autres utilisateurs
+// Récupérer les posts du fil d'actualité
 $requete = $bdd->prepare("
-    SELECT posts.*, users.pseudo, users.avatar 
+    SELECT posts.*, users.pseudo, users.avatar,
+        (SELECT COUNT(*) FROM likes WHERE likes.post_id = posts.id) AS nombre_likes,
+        (SELECT COUNT(*) FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) AS deja_like
     FROM posts 
     JOIN users ON posts.user_id = users.id 
-    WHERE users.id != ? 
-    ORDER BY date_creation DESC
+    ORDER BY posts.date_creation DESC
 ");
 $requete->execute([$user_id]);
 $posts = $requete->fetchAll(PDO::FETCH_ASSOC);
+
+$requeteCommentaires = $bdd->prepare("
+    SELECT commentaires.*, users.pseudo, users.avatar
+    FROM commentaires
+    JOIN users ON commentaires.user_id = users.id
+    WHERE commentaires.post_id = ?
+    ORDER BY commentaires.date_creation ASC
+");
 ?>
 
 <!DOCTYPE html>
@@ -36,7 +45,7 @@ $posts = $requete->fetchAll(PDO::FETCH_ASSOC);
   <title>Fil d'actualité - GameConnect</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    #post-form { position: fixed; top: 20px; left: 0; width: 20%; max-width: 300px; background-color: #1f2937; padding: 1rem; border-radius: 0 8px 8px 0; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); z-index: 50; display: none; }
+    #post-form { position: fixed; top: 20px; left: 0; width: 90%; max-width: 360px; background-color: #1f2937; padding: 1rem; border-radius: 0 8px 8px 0; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); z-index: 50; display: none; }
     #overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.3); z-index: 40; display:none; }
     body { padding-bottom: 80px; }
   </style>
@@ -70,19 +79,26 @@ $posts = $requete->fetchAll(PDO::FETCH_ASSOC);
     <h1 class="text-2xl font-bold text-center mb-4">Fil d'actualité</h1>
 
     <?php foreach ($posts as $post): ?>
+      <?php
+        $requeteCommentaires->execute([$post['id']]);
+        $commentaires = $requeteCommentaires->fetchAll(PDO::FETCH_ASSOC);
+        $lienProfil = ($post['user_id'] == $user_id) ? 'profil.php' : 'profil_utilisateur.php?id=' . $post['user_id'];
+      ?>
       <div class="bg-gray-800 p-4 rounded shadow-md">
         <div class="flex items-center space-x-3 mb-2">
-          <?php if ($post['avatar']): ?>
-            <img src="<?= htmlspecialchars($post['avatar']) ?>" alt="avatar" class="w-10 h-10 rounded-full">
-          <?php else: ?>
-            <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center uppercase font-bold text-lg"><?= strtoupper(substr($post['pseudo'],0,1)) ?></div>
-          <?php endif; ?>
-          <span class="font-semibold"><?= htmlspecialchars($post['pseudo']) ?></span>
+          <a href="<?= htmlspecialchars($lienProfil) ?>" class="flex items-center space-x-3 hover:text-blue-400">
+            <?php if ($post['avatar']): ?>
+              <img src="<?= htmlspecialchars($post['avatar']) ?>" alt="avatar" class="w-10 h-10 rounded-full">
+            <?php else: ?>
+              <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center uppercase font-bold text-lg"><?= strtoupper(substr($post['pseudo'],0,1)) ?></div>
+            <?php endif; ?>
+            <span class="font-semibold"><?= htmlspecialchars($post['pseudo']) ?></span>
+          </a>
           <span class="text-sm text-gray-400 ml-auto"><?= date("d/m/Y H:i", strtotime($post['date_creation'])) ?></span>
         </div>
 
         <?php if ($post['contenu']): ?>
-          <p class="mb-2"><?= nl2br(htmlspecialchars_decode($post['contenu'], ENT_QUOTES)) ?></p>
+          <p class="mb-2"><?= nl2br(htmlspecialchars($post['contenu'])) ?></p>
         <?php endif; ?>
         <?php if ($post['image']): ?>
           <img src="<?= htmlspecialchars($post['image']) ?>" alt="post image" class="w-full max-h-64 object-cover rounded mb-2">
@@ -90,6 +106,42 @@ $posts = $requete->fetchAll(PDO::FETCH_ASSOC);
         <?php if ($post['lien']): ?>
           <a href="<?= htmlspecialchars($post['lien']) ?>" target="_blank" class="text-blue-400 underline"><?= htmlspecialchars($post['lien']) ?></a>
         <?php endif; ?>
+
+        <div class="flex items-center gap-3 mt-4">
+          <form method="post" action="likes.php">
+            <input type="hidden" name="post_id" value="<?= (int)$post['id'] ?>">
+            <button type="submit" class="<?= $post['deja_like'] ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600' ?> px-3 py-1 rounded text-sm">
+              <?= $post['deja_like'] ? '❤️ Aimé' : '❤️ Like' ?>
+            </button>
+          </form>
+          <span class="text-sm text-gray-300"><?= (int)$post['nombre_likes'] ?> like(s)</span>
+        </div>
+
+        <div class="mt-4 border-t border-gray-700 pt-3">
+          <p class="font-semibold mb-2">Commentaires</p>
+
+          <?php if (empty($commentaires)): ?>
+            <p class="text-sm text-gray-400">Aucun commentaire pour le moment.</p>
+          <?php endif; ?>
+
+          <div class="space-y-2">
+            <?php foreach ($commentaires as $commentaire): ?>
+              <div class="bg-gray-700 p-2 rounded">
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="font-semibold"><?= htmlspecialchars($commentaire['pseudo']) ?></span>
+                  <span class="text-gray-400"><?= date("d/m/Y H:i", strtotime($commentaire['date_creation'])) ?></span>
+                </div>
+                <p class="text-sm mt-1"><?= nl2br(htmlspecialchars($commentaire['texte'])) ?></p>
+              </div>
+            <?php endforeach; ?>
+          </div>
+
+          <form method="post" action="commentaires.php" class="mt-3 flex flex-col sm:flex-row gap-2">
+            <input type="hidden" name="post_id" value="<?= (int)$post['id'] ?>">
+            <input type="text" name="texte" maxlength="255" placeholder="Ajouter un commentaire" class="flex-1 p-2 rounded bg-gray-700 text-white">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded text-sm font-semibold">Commenter</button>
+          </form>
+        </div>
       </div>
     <?php endforeach; ?>
 </div>

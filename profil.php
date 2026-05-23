@@ -20,11 +20,8 @@ $message = "";
 
 // Traitement de la mise à jour du profil
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_profil'])) {
-    $pseudo = $_POST['pseudo'] ?? '';
-    $email = $_POST['email'] ?? '';
-    $nom = $_POST['nom'] ?? '';
-    $prenom = $_POST['prenom'] ?? '';
-    $bio = $_POST['bio'] ?? '';
+    $bio = trim($_POST['bio'] ?? '');
+    $jeu_prefere = trim($_POST['jeu_prefere'] ?? '');
 
     // Upload avatar
     if (!empty($_FILES['avatar']['name'])) {
@@ -39,8 +36,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['update_profil'])) {
     }
 
     // Mise à jour en base
-    $stmt = $bdd->prepare("UPDATE users SET pseudo = ?, email = ?, nom = ?, prenom = ?, bio = ?, avatar = ? WHERE id = ?");
-    $stmt->execute([$pseudo, $email, $nom, $prenom, $bio, $avatar, $user_id]);
+    $stmt = $bdd->prepare("UPDATE users SET bio = ?, jeu_prefere = ?, avatar = ? WHERE id = ?");
+    $stmt->execute([$bio, $jeu_prefere, $avatar, $user_id]);
+
+    $_SESSION['avatar'] = $avatar;
 
     $message = "Profil mis à jour avec succès.";
 }
@@ -87,23 +86,18 @@ $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         <div class="text-white space-y-1">
             <p><strong>Pseudo :</strong> <?= htmlspecialchars($user['pseudo'] ?? '') ?></p>
-            <p><strong>Email :</strong> <?= htmlspecialchars($user['email'] ?? '') ?></p>
-            <p><strong>Nom :</strong> <?= htmlspecialchars($user['nom'] ?? '') ?></p>
-            <p><strong>Prénom :</strong> <?= htmlspecialchars($user['prenom'] ?? '') ?></p>
             <p><strong>Bio :</strong> <?= htmlspecialchars($user['bio'] ?? '') ?></p>
+            <p><strong>Jeu préféré :</strong> <?= htmlspecialchars($user['jeu_prefere'] ?? '') ?></p>
         </div>
     </div>
 
     <!-- Formulaire de modification -->
     <div class="bg-gray-800 p-4 rounded shadow-md">
-        <h2 class="text-xl font-semibold mb-3">Modifier mes informations</h2>
+        <h2 class="text-xl font-semibold mb-3">Modifier mon profil</h2>
         <form method="POST" enctype="multipart/form-data" class="space-y-3">
             <input type="hidden" name="update_profil" value="1">
-            <input type="text" name="pseudo" value="<?= htmlspecialchars($user['pseudo'] ?? '') ?>" placeholder="Pseudo" class="w-full p-2 rounded text-black">
-            <input type="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" placeholder="Email" class="w-full p-2 rounded text-black">
-            <input type="text" name="nom" value="<?= htmlspecialchars($user['nom'] ?? '') ?>" placeholder="Nom" class="w-full p-2 rounded text-black">
-            <input type="text" name="prenom" value="<?= htmlspecialchars($user['prenom'] ?? '') ?>" placeholder="Prénom" class="w-full p-2 rounded text-black">
             <textarea name="bio" placeholder="Bio" class="w-full p-2 rounded text-black"><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
+            <input type="text" name="jeu_prefere" value="<?= htmlspecialchars($user['jeu_prefere'] ?? '') ?>" placeholder="Jeu préféré" class="w-full p-2 rounded text-black">
             <input type="file" name="avatar" class="w-full p-2 rounded bg-white text-black">
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 transition px-4 py-2 rounded text-white">Enregistrer</button>
         </form>
@@ -117,7 +111,7 @@ $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php foreach ($posts as $post): ?>
             <div class="bg-gray-800 p-4 rounded shadow-md">
                 <?php if (!empty($post['contenu'])): ?>
-                    <p class="mb-2"><?= nl2br(htmlspecialchars_decode($post['contenu'], ENT_QUOTES)) ?></p>
+                    <p class="mb-2"><?= nl2br(htmlspecialchars($post['contenu'])) ?></p>
                 <?php endif; ?>
                 <?php if (!empty($post['image'])): ?>
                     <img src="<?= htmlspecialchars($post['image']) ?>" alt="Image post" class="w-full max-h-64 object-cover rounded mb-2">

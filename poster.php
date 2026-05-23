@@ -14,8 +14,12 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $contenu = $_POST["contenu"] ?? '';
-    $lien = $_POST["lien"] ?? null;
+    $contenu = trim($_POST["contenu"] ?? '');
+    $lien = trim($_POST["lien"] ?? '');
+    if ($lien === '' || !filter_var($lien, FILTER_VALIDATE_URL)) {
+        $lien = null;
+    }
+
     $image = null;
 
     if (!empty($_FILES['image']['name'])) {
@@ -26,10 +30,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (move_uploaded_file($_FILES['image']['tmp_name'], $cheminImage)) $image = $cheminImage;
     }
 
-    $stmt = $bdd->prepare("INSERT INTO posts (user_id, contenu, image, lien) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$_SESSION['user_id'], $contenu, $image, $lien]);
+    if ($contenu !== '' || $image !== null || $lien !== null) {
+        $stmt = $bdd->prepare("INSERT INTO posts (user_id, contenu, image, lien) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$_SESSION['user_id'], $contenu, $image, $lien]);
+    }
 
-    header("Location: profil.php");
+    header("Location: index.php");
     exit();
 }
 ?>

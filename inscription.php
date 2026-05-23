@@ -12,15 +12,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Récupération des champs
-    $nom = htmlspecialchars(trim($_POST['nom']));
-    $prenom = htmlspecialchars(trim($_POST['prenom']));
     $pseudo = htmlspecialchars(trim($_POST['pseudo']));
     $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
     $mdp = $_POST['mdp'];
     $confirm_mdp = $_POST['confirm_mdp'];
 
     // Vérifications
-    if (empty($nom) || empty($prenom) || empty($pseudo) || empty($email) || empty($mdp) || empty($confirm_mdp)) {
+    if (empty($pseudo) || empty($email) || empty($mdp) || empty($confirm_mdp)) {
         $errors[] = "Tous les champs sont obligatoires.";
     }
 
@@ -43,24 +41,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Le mot de passe doit contenir au moins 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.";
     }
 
-    // Gestion de l'avatar
-    $avatarPath = null;
-    if (!empty($_FILES['avatar']['name'])) {
-        $avatarName = uniqid() . '_' . $_FILES['avatar']['name'];
-        $uploadDir = 'uploads/avatars/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-        $avatarPath = $uploadDir . $avatarName;
-        move_uploaded_file($_FILES['avatar']['tmp_name'], $avatarPath);
+    if (empty($errors)) {
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE pseudo = ? OR email = ?");
+        $stmt->execute([$pseudo, $email]);
+
+        if ($stmt->fetch()) {
+            $errors[] = "Ce pseudo ou cette adresse email est déjà utilisé.";
+        }
     }
 
     // S’il n’y a pas d’erreurs
     if (empty($errors)) {
+        // Gestion de l'avatar
+        $avatarPath = null;
+        if (!empty($_FILES['avatar']['name'])) {
+            $avatarName = uniqid() . '_' . basename($_FILES['avatar']['name']);
+            $uploadDir = 'uploads/avatars/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+            $avatarPath = $uploadDir . $avatarName;
+            move_uploaded_file($_FILES['avatar']['tmp_name'], $avatarPath);
+        }
+
         // Hash du mot de passe
         $mdpHash = password_hash($mdp, PASSWORD_DEFAULT);
 
-        // Si aucun avatar, on utilisera la première lettre du pseudo côté affichage
-        $stmt = $pdo->prepare("INSERT INTO users (nom, prenom, pseudo, email, mot_de_passe, avatar) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$nom, $prenom, $pseudo, $email, $mdpHash, $avatarPath]);
+        $stmt = $pdo->prepare("INSERT INTO users (pseudo, email, mot_de_passe, avatar) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$pseudo, $email, $mdpHash, $avatarPath]);
 
         header("Location: connexion.php?success=1");
         exit();
@@ -90,10 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="post" enctype="multipart/form-data" novalidate>
-            <input type="text" name="nom" placeholder="Nom" class="w-full p-2 mb-2 rounded bg-gray-700" required>
-            <input type="text" name="prenom" placeholder="Prénom" class="w-full p-2 mb-2 rounded bg-gray-700" required>
-            <input type="text" name="pseudo" placeholder="Pseudo" class="w-full p-2 mb-2 rounded bg-gray-700" required>
-            <input type="email" name="email" placeholder="Adresse email" class="w-full p-2 mb-2 rounded bg-gray-700" required>
+            <input type="text" name="pseudo" placeholder="Pseudo" class="w-full p-2 mb-2 rounded bg-gray-700" required value="<?= isset($pseudo) ? htmlspecialchars($pseudo) : '' ?>">
+            <input type="email" name="email" placeholder="Adresse email" class="w-full p-2 mb-2 rounded bg-gray-700" required value="<?= isset($email) ? htmlspecialchars($email) : '' ?>">
 
             <input type="password" name="mdp" id="mdp" placeholder="Mot de passe" class="w-full p-2 mb-2 rounded bg-gray-700" required>
             <input type="password" name="confirm_mdp" placeholder="Confirmer mot de passe" class="w-full p-2 mb-2 rounded bg-gray-700" required>
